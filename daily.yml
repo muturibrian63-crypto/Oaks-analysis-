@@ -1,0 +1,52 @@
+name: Daily soccer analysis
+
+on:
+  schedule:
+    - cron: "0 3 * * *"    # 06:00 Nairobi
+    - cron: "0 10 * * *"   # 13:00 Nairobi
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run the predictions (today and tomorrow)
+        run: python api_football_daily.py --date today --days 2 --outdir _site/data
+
+      - name: Add the web page files
+        run: cp index.html manifest.webmanifest sw.js icon-192.png icon-512.png icon-512-maskable.png _site/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
