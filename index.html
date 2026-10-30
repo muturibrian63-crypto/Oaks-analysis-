@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pitch Report</title>
+<meta name="theme-color" content="#120a26">
+<meta name="description" content="Daily football predictions, goal and corner markets, and value flags.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky header (brand, day chips, quick filters) over a compact match list. Tapping a row opens a full-screen match view with Overview, Markets, Corners and Scores tabs. */
+:root {
+  --bg: #120a26; --surface: #1c1238; --surface2: #271a4c; --fg: #f3eeff; --muted: #a698cc; --line: #36275f;
+  --brand: #9b6dff; --pop: #ffd23f; --pop-ink: #ffd23f; --on-pop: #1a0f33; --draw: #6f6396; --bad: #ff9a9a;
+  --font-display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f5f1ff; --surface: #ffffff; --surface2: #ece5ff; --fg: #1b1033; --muted: #6a5c91; --line: #d9cff5;
+    --brand: #5b21b6; --pop: #f7c500; --pop-ink: #8a6500; --on-pop: #1a0f33; --draw: #a89cc9; --bad: #b3261e;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f5f1ff; --surface: #ffffff; --surface2: #ece5ff; --fg: #1b1033; --muted: #6a5c91; --line: #d9cff5;
+  --brand: #5b21b6; --pop: #f7c500; --pop-ink: #8a6500; --on-pop: #1a0f33; --draw: #a89cc9; --bad: #b3261e;
+  color-scheme: light;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font-body); padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px)); }
+button, select, input { font: inherit; color: var(--fg); }
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--pop); outline-offset: 2px; }
+.inner { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header.top { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
+.brand { display: flex; align-items: center; gap: 10px; padding-block: 12px 8px; }
+.mark { width: 30px; height: 30px; border-radius: 8px; background: var(--surface2); display: grid; place-items: center; flex: none; }
+.mark svg { width: 20px; height: 20px; }
+.brand h1 { font: 800 22px/1 var(--font-display); letter-spacing: -0.01em; margin: 0; flex: 1; }
+.brand .stamp { font: 500 11px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; text-align: right; }
+.row { display: flex; gap: 8px; overflow-x: auto; padding-block: 4px 10px; scrollbar-width: none; }
+.row::-webkit-scrollbar { display: none; }
+.chip { flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 6px 13px; font: 500 13px var(--font-body); cursor: pointer; white-space: nowrap; }
+.chip small { font: 400 11px var(--font-mono); color: var(--muted); margin-left: 5px; }
+.chip[aria-pressed="true"] { background: var(--pop); color: var(--on-pop); border-color: var(--pop); font-weight: 600; }
+.chip[aria-pressed="true"] small { color: var(--on-pop); opacity: .75; }
+.day { display: flex; flex-direction: column; align-items: center; border-radius: 12px; padding: 6px 14px; line-height: 1.2; }
+.day b { font: 800 16px var(--font-display); }
+.day span { font: 500 10px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
+
+.bar2 { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 12px 4px; align-items: center; }
+.bar2 select { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; max-width: 100%; min-width: 0; flex: 1 1 140px; }
+.count { font: 500 12px var(--font-mono); color: var(--muted); padding-block: 4px 8px; }
+.count b { color: var(--pop-ink); font-weight: 500; }
+.panel { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; margin-top: 8px; }
+.panel > summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 14px; color: var(--fg); list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.panel > summary::after { content: "+"; color: var(--pop-ink); font: 500 18px var(--font-mono); }
+.panel[open] > summary::after { content: "–"; }
+.panel .body { padding: 0 14px 14px; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 8px; }
+.panel .body p { margin: 0; }
+.lgs { display: flex; flex-wrap: wrap; gap: 6px; }
+.lgs span { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font: 500 12px var(--font-mono); background: var(--bg); color: var(--fg); }
+.set { display: flex; gap: 12px; flex-wrap: wrap; }
+.set label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.set input { width: 90px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+.btn { background: var(--pop); color: var(--on-pop); border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 600; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.status { font-size: 13px; color: var(--muted); }
+.status.err { color: var(--bad); }
+.banner { border: 1px solid var(--pop); background: color-mix(in srgb, var(--pop) 12%, var(--surface)); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-top: 10px; }
+.banner b { color: var(--pop-ink); }
+
+#list { display: flex; flex-direction: column; gap: 10px; padding-top: 6px; }
+.m { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; min-width: 0; }
+.m:active { background: var(--surface2); }
+.m .t { display: flex; justify-content: space-between; align-items: center; gap: 8px; font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.m .t .lg { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.star { border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; padding: 4px 6px; margin: -4px -6px; cursor: pointer; }
+.star[aria-pressed="true"] { color: var(--pop); }
+.m .tm { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; margin: 8px 0 10px; align-items: center; }
+.m .tm .n { font: 700 17px/1.25 var(--font-display); overflow-wrap: anywhere; }
+.m .tm .pp { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.m .tm .pp.h { color: var(--pop-ink); } .m .tm .pp.a { color: var(--brand); }
+.bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; }
+.bar i { display: block; height: 100%; }
+.bar .h { background: var(--pop); } .bar .d { background: var(--draw); } .bar .a { background: var(--brand); }
+.legend { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font: 500 12px var(--font-mono); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.legend .h { color: var(--pop-ink); } .legend .d { color: var(--muted); } .legend .a { color: var(--brand); }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pill { border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; font: 500 12px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.pill b { color: var(--fg); font-weight: 500; }
+.pill.hot { border-color: var(--pop); } .pill.hot b { color: var(--pop-ink); }
+.pill.val { background: var(--pop); border-color: var(--pop); color: var(--on-pop); font-weight: 600; }
+.pill.lim { border-style: dashed; }
+.empty { text-align: center; color: var(--muted); padding: 32px 16px; border: 1px dashed var(--line); border-radius: 12px; }
+
+#detail { position: fixed; inset: 0; z-index: 40; background: var(--bg); overflow-y: auto; overscroll-behavior: contain; }
+#detail[hidden] { display: none; }
+.dh { position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--line); z-index: 2; padding-top: env(safe-area-inset-top, 0px); }
+.dh .inner { padding-block: 10px 0; }
+.back { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-weight: 500; }
+.dh .meta { font: 500 11px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 10px 0 2px; }
+.dh h2 { font: 800 22px/1.2 var(--font-display); margin: 0 0 8px; overflow-wrap: anywhere; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.tabs button { flex: 1 0 auto; border: 0; background: transparent; color: var(--muted); padding: 10px 14px; font-weight: 600; border-bottom: 3px solid transparent; cursor: pointer; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--pop); }
+.dbody { padding-block: 16px 40px; display: flex; flex-direction: column; gap: 14px; }
+h3 { font: 500 12px var(--font-mono); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 6px 0 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+.tile { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--surface); min-width: 0; }
+.tile .k { font: 500 11px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.tile .v { font: 800 20px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
+.tile .v small { font: 400 12px var(--font-mono); color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+.bet { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; border: 1px solid var(--pop); background: color-mix(in srgb, var(--pop) 12%, var(--surface)); border-radius: 10px; padding: 10px 12px; margin-top: 8px; min-width: 0; }
+.bet:first-child { margin-top: 0; }
+.bet b { font-weight: 600; overflow-wrap: anywhere; }
+.bet b small { font: 500 11px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-left: 6px; }
+.bet .ev { font: 800 18px var(--font-display); color: var(--pop-ink); font-variant-numeric: tabular-nums; }
+.bet .mm { font: 400 12px var(--font-mono); color: var(--muted); grid-column: 1 / -1; font-variant-numeric: tabular-nums; }
+.note { font-size: 12px; color: var(--muted); margin: 0; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font: 500 11px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+th:first-child, td:first-child { text-align: left; }
+tr.grp td { text-align: left; font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); padding-top: 14px; border-bottom: 1px solid var(--muted); }
+tr.flag td { background: color-mix(in srgb, var(--pop) 14%, var(--surface)); }
+td.evc { font-family: var(--font-mono); min-width: 64px; }
+td.evc.pos { color: var(--pop-ink); font-weight: 500; }
+.mono { font-family: var(--font-mono); }
+input.oi { width: 76px; text-align: right; font: 13px var(--font-mono); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; }
+input.oi.mine { border-color: var(--pop); }
+.hist { display: flex; align-items: flex-end; gap: 4px; height: 110px; padding-top: 8px; }
+.hist div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }
+.hist i { display: block; width: 100%; background: var(--brand); border-radius: 3px 3px 0 0; min-height: 2px; }
+.hist .on i { background: var(--pop); }
+.hist span { font: 500 10px var(--font-mono); color: var(--muted); margin-top: 4px; }
+.hist em { font: 500 10px var(--font-mono); color: var(--muted); font-style: normal; margin-bottom: 2px; }
+.grid { display: grid; gap: 3px; grid-template-columns: auto repeat(6, 1fr); font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; min-width: 320px; }
+.grid div { padding: 7px 4px; text-align: center; border-radius: 4px; }
+.grid .hd { color: var(--muted); }
+.bt { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.bt .k { font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.bt .v { font: 800 20px/1.2 var(--font-display); font-variant-numeric: tabular-nums; }
+footer { color: var(--muted); font-size: 12px; padding-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="var(--pop)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M12 5v14"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <h1>Pitch Report</h1>
+      <div class="stamp" id="stamp">Loading</div>
+    </div>
+    <div class="row" id="days" role="group" aria-label="Day"></div>
+    <div class="row" id="quick" role="group" aria-label="Quick filters"></div>
+  </div>
+</header>
+
+<main class="inner">
+  <div class="banner" id="exbanner" hidden><b>Example data.</b> These matches, teams and numbers are made up to show the layout. They are not real predictions.</div>
+  <div class="banner" id="stale" hidden></div>
+
+  <div class="bar2">
+    <select id="fl" aria-label="League"><option value="">All leagues</option></select>
+    <select id="fs" aria-label="Sort by">
+      <option value="ko">Sort: kickoff</option>
+      <option value="ev">Sort: best value</option>
+      <option value="o25">Sort: over 2.5</option>
+      <option value="btts">Sort: both score</option>
+      <option value="cor">Sort: corners</option>
+    </select>
+  </div>
+  <div class="count" id="count"></div>
+
+  <div id="list"></div>
+
+  <details class="panel" id="covp"><summary>Coverage and limits</summary><div class="body" id="cov"></div></details>
+  <details class="panel"><summary>Value settings</summary><div class="body">
+    <p>A row is flagged when the model's edge and expected value both reach these levels.</p>
+    <div class="set">
+      <label for="fe">Min edge %<input id="fe" type="number" inputmode="decimal" min="0" step="0.5" value="4"></label>
+      <label for="fm">Min EV %<input id="fm" type="number" inputmode="decimal" min="0" step="0.5" value="3"></label>
+    </div>
+  </div></details>
+  <details class="panel" id="btp" hidden><summary>Backtest</summary><div class="body"><div class="bt" id="bt"></div><p id="btnote"></p></div></details>
+  <details class="panel"><summary>Data</summary><div class="body">
+    <div class="status" id="status" role="status"></div>
+    <div class="btns">
+      <button class="btn" id="reload" type="button">Reload latest</button>
+      <button class="btn ghost" id="pick" type="button">Open a file</button>
+      <button class="btn ghost" id="example" type="button">Example data</button>
+      <button class="btn ghost" id="clearodds" type="button">Clear my odds</button>
+    </div>
+    <input id="file" type="file" accept=".json,application/json" hidden>
+    <p>Reload reads <span class="mono">data/predictions.json</span> from this site. Open a file to view a <span class="mono">predictions.json</span> from your own computer.</p>
+  </div></details>
+
+  <footer>
+    <p style="margin:0">Estimates only. Probabilities come from form, Elo, three classifiers and a Poisson goal model, blended with bookmaker odds where they exist. The free data source has odds only for results and over/under 2.5, so every other market shows a fair price and waits for odds you type in. Edge is the model probability minus 1 divided by the odds, which keeps the bookmaker margin in. Odds, saved matches and settings stay in this browser. A value flag is a screening signal, not a recommendation to bet.</p>
+  </footer>
+</main>
+
+<div id="detail" hidden role="dialog" aria-modal="true" aria-labelledby="dtitle">
+  <div class="dh"><div class="inner">
+    <button class="back" id="back" type="button">← Matches</button>
+    <div class="meta" id="dmeta"></div>
+    <h2 id="dtitle"></h2>
+    <div class="tabs" role="tablist" id="tabs"></div>
+  </div></div>
+  <div class="inner dbody" id="dbody"></div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var num = function (x) { x = Number(x); return isFinite(x) ? x : NaN; };
+  var pc = function (x, d) { x = num(x); return isFinite(x) ? (x * 100).toFixed(d == null ? 1 : d) + "%" : "–"; };
+  var spc = function (x, d) { x = num(x); return isFinite(x) ? (x >= 0 ? "+" : "") + (x * 100).toFixed(d == null ? 1 : d) + "%" : "–"; };
+  var fair = function (p) { return p > 0.0005 ? (1 / p).toFixed(2) : "n/a"; };
+  var RHO = -0.08, K_ODDS = "pitch-report-odds-v1", K_FAV = "pitch-report-fav-v1", K_SET = "pitch-report-set-v1";
+  var DATA = null, EXAMPLE = false, CUR = [], ODDS = {}, FAV = {}, MINEDGE = 0.04, MINEV = 0.03;
+  var DAY = "", QUICK = "all", OPEN = null, TAB = "overview";
+
+  function load(k) { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  ODDS = load(K_ODDS); FAV = load(K_FAV);
+  (function () { var s = load(K_SET); if (s.e != null) $("fe").value = s.e; if (s.m != null) $("fm").value = s.m; })();
+
+  /* ---------- maths (mirrors the Python script) ---------- */
+  function pmf(k, lam) { lam = Math.max(0.05, Math.min(Number(lam), 6)); var f = 1; for (var i = 2; i <= k; i++) f *= i; return Math.exp(-lam) * Math.pow(lam, k) / f; }
+  function matrix(lh, la) {
+    var N = 8, m = [], tot = 0, h, a, p, tau;
+    for (h = 0; h <= N; h++) { m.push([]); for (a = 0; a <= N; a++) {
+      p = pmf(h, lh) * pmf(a, la);
+      if (h === 0 && a === 0) tau = 1 - lh * la * RHO; else if (h === 0 && a === 1) tau = 1 + lh * RHO;
+      else if (h === 1 && a === 0) tau = 1 + la * RHO; else if (h === 1 && a === 1) tau = 1 - RHO; else tau = 1;
+      p = Math.max(0, p * tau); m[h].push(p); tot += p;
+    } }
+    for (h = 0; h <= N; h++) for (a = 0; a <= N; a++) m[h][a] /= tot;
+    return m;
+  }
+  function totals(m) { var t = [], i, j; for (i = 0; i < 2 * m.length; i++) t.push(0); for (i = 0; i < m.length; i++) for (j = 0; j < m.length; j++) t[i + j] += m[i][j]; return t; }
+  function over(t, line) { var s = 0; for (var k = 0; k < t.length; k++) if (k > line) s += t[k]; return s; }
+  function countDist(mean, disp, n) {
+    n = n || 40; mean = Math.max(0.1, mean);
+    var out = [], k, s = 0;
+    if (disp <= 1.02) { out.push(Math.exp(-mean)); for (k = 1; k <= n; k++) out.push(out[k - 1] * mean / k); }
+    else { var p = 1 / disp, r = mean / (disp - 1); out.push(Math.pow(p, r)); for (k = 0; k < n; k++) out.push(out[k] * (k + r) / (k + 1) * (1 - p)); }
+    out.forEach(function (x) { s += x; });
+    return out.map(function (x) { return x / s; });
+  }
+  function buildMarkets(ens, mat, cor, book) {
+    var M = [], n = mat.length, i, j;
+    function add(g, k, l, p, o) { M.push({ group: g, key: k, label: l, p: p, odds: o || null }); }
+    add("Result", "1", "Home win", ens[0], book.home); add("Result", "X", "Draw", ens[1], book.draw); add("Result", "2", "Away win", ens[2], book.away);
+    add("Result", "1X", "Home or draw", ens[0] + ens[1]); add("Result", "X2", "Draw or away", ens[1] + ens[2]); add("Result", "12", "Home or away", ens[0] + ens[2]);
+    add("Result", "dnb1", "Draw no bet: home", ens[0] / (ens[0] + ens[2])); add("Result", "dnb2", "Draw no bet: away", ens[2] / (ens[0] + ens[2]));
+    var t = totals(mat);
+    [0.5, 1.5, 2.5, 3.5, 4.5].forEach(function (l) { var o = over(t, l); add("Goals", "o" + l, "Over " + l, o, l === 2.5 ? book.over25 : null); add("Goals", "u" + l, "Under " + l, 1 - o, l === 2.5 ? book.under25 : null); });
+    var B = 0, hd = [], ad = [];
+    for (i = 0; i < n; i++) { hd.push(0); ad.push(0); }
+    for (i = 0; i < n; i++) for (j = 0; j < n; j++) { if (i > 0 && j > 0) B += mat[i][j]; hd[i] += mat[i][j]; ad[j] += mat[i][j]; }
+    add("Goals", "by", "Both teams to score", B); add("Goals", "bn", "Both teams not to score", 1 - B);
+    [0.5, 1.5, 2.5].forEach(function (l) { add("Team goals", "ho" + l, "Home over " + l, over(hd, l)); add("Team goals", "ao" + l, "Away over " + l, over(ad, l)); });
+    function mgt(x) { var s = 0; for (i = 0; i < n; i++) for (j = 0; j < n; j++) if (i - j > x) s += mat[i][j]; return s; }
+    add("Handicap", "ah-h-1.5", "Home -1.5", mgt(1.5)); add("Handicap", "ah-h+1.5", "Home +1.5", mgt(-1.5));
+    add("Handicap", "ah-a-1.5", "Away -1.5", 1 - mgt(-1.5)); add("Handicap", "ah-a+1.5", "Away +1.5", 1 - mgt(1.5));
+    var info = null;
+    if (cor) {
+      var mean = cor.home + cor.away, dist = countDist(mean, cor.disp), base = Math.max(0.5, Math.floor(mean) - 3.5), k;
+      for (k = 0; k < 8; k++) { var ln = base + k, o = over(dist, ln); add("Corners", "co" + ln, "Over " + ln + " corners", o); add("Corners", "cu" + ln, "Under " + ln + " corners", 1 - o); }
+      var hdist = countDist(cor.home, cor.disp), adist = countDist(cor.away, cor.disp);
+      [3.5, 4.5, 5.5].forEach(function (l) { add("Corners", "cho" + l, "Home over " + l + " corners", over(hdist, l)); add("Corners", "cao" + l, "Away over " + l + " corners", over(adist, l)); });
+      info = { expected_home: cor.home, expected_away: cor.away, expected_total: mean, dispersion: cor.disp };
+    }
+    return { markets: M, corners: info };
+  }
+
+  /* ---------- example data, built with the same maths so every number agrees ---------- */
+  function ymd(off) { var n = new Date(); n.setDate(n.getDate() + off); return n.getFullYear() + "-" + ("0" + (n.getMonth() + 1)).slice(-2) + "-" + ("0" + n.getDate()).slice(-2); }
+  function sample() {
+    var d0 = ymd(0), d1 = ymd(1);
+    var fx = [
+      ["Sample League · England", d0, "15:00", "Northgate FC", "Riverside Athletic", 1.85, 0.95, [1.62, 4.00, 5.50], [6.3, 3.9]],
+      ["Sample League · England", d0, "17:30", "Harbor Town", "Kestrel Rovers", 1.30, 1.25, [2.55, 3.20, 2.95], [5.1, 4.8]],
+      ["Sample League · Spain", d0, "20:15", "Valley United", "Marlow City", 1.05, 1.60, [3.30, 3.30, 2.30], [4.7, 5.5]],
+      ["Sample League · Italy", d0, "22:45", "Eastfield", "Stonebridge", 1.40, 0.85, [1.95, 3.30, 4.30], [5.8, 3.6]],
+      ["Sample League · Germany", d1, "17:30", "Lakeview", "Ashford Park", 1.95, 1.55, [1.95, 3.80, 3.60], [5.9, 4.9]],
+      ["Sample League · Germany", d1, "19:30", "Quarry Town", "Fenwick SC", 1.15, 1.05, [2.45, 3.10, 3.10], [5.0, 4.4]]
+    ];
+    var shift = [[0.03, -0.01, -0.02], [0, 0.01, -0.01], [0.02, -0.02, 0], [0.05, -0.02, -0.03], [-0.01, 0, 0.01], [0.04, 0, -0.04]];
+    var preds = fx.map(function (r, i) {
+      var mat = matrix(r[5], r[6]), t = totals(mat), H = 0, D = 0, A = 0, B = 0, best = [0, 0, 0], x, y, sc = [];
+      for (x = 0; x < mat.length; x++) for (y = 0; y < mat.length; y++) {
+        if (x > y) H += mat[x][y]; else if (x === y) D += mat[x][y]; else A += mat[x][y];
+        if (x > 0 && y > 0) B += mat[x][y];
+        if (mat[x][y] > best[2]) best = [x, y, mat[x][y]];
+        sc.push({ score: x + "-" + y, p: mat[x][y] });
+      }
+      sc.sort(function (a, b) { return b.p - a.p; });
+      var ens = [H + shift[i][0], D + shift[i][1], A + shift[i][2]], o = over(t, 2.5), bo = r[7];
+      var book = { home: bo[0], draw: bo[1], away: bo[2], over25: +(1 / (o + 0.05)).toFixed(2), under25: +(1 / (1 - o + 0.02)).toFixed(2) };
+      var built = buildMarkets(ens, mat, { home: r[8][0], away: r[8][1], disp: 1.18 }, book);
+      return {
+        date: r[1], kickoff_nairobi: r[2], league: r[0], home: r[3], away: r[4], low_data: i === 5,
+        expected_goals: { home: r[5], away: r[6] }, model_1x2: { home_win: ens[0], draw: ens[1], away_win: ens[2] },
+        goal_model: { over25: o, under25: 1 - o, btts_yes: B, btts_no: 1 - B },
+        correct_scores: sc.slice(0, 6), bookmaker_odds: book, markets: built.markets, corners: built.corners
+      };
+    });
+    var lg = {}; preds.forEach(function (p) { lg[p.league] = (lg[p.league] || 0) + 1; });
+    return { generated_at_utc: new Date().toISOString(), meta: { leagues_with_fixtures: lg, skipped: [] },
+      backtest: { matches: 612, accuracy: 0.521, mean_brier_1x2: 0.589, mean_log_loss: 0.985, value_bets: 143, value_bet_roi: -0.012, training_matches: 2448, test_start: "2026-03-14", test_end: "2026-10-26" },
+      predictions: preds };
+  }
+
+  /* ---------- helpers ---------- */
+  function status(msg, err) { var s = $("status"); s.textContent = msg; s.className = "status" + (err ? " err" : ""); }
+  function mid(p) { return [p.date, p.home, p.away].join("|"); }
+  function marketsOf(p) {
+    if (Array.isArray(p.markets) && p.markets.length) return p.markets;
+    var m1 = p.model_1x2 || {}, xg = p.expected_goals || {};
+    if (!isFinite(num(xg.home)) || !isFinite(num(xg.away))) return [];
+    return buildMarkets([num(m1.home_win), num(m1.draw), num(m1.away_win)], matrix(num(xg.home), num(xg.away)), null, p.bookmaker_odds || {}).markets;
+  }
+  function effOdds(p, m) {
+    var mine = num(ODDS[mid(p) + "#" + m.key]);
+    if (isFinite(mine) && mine > 1.01) return { o: mine, mine: true };
+    var b = num(m.odds); return isFinite(b) && b > 1.01 ? { o: b, mine: false } : null;
+  }
+  function judge(m, o) { var ev = m.p * o - 1, edge = m.p - 1 / o; return { ev: ev, edge: edge, ok: edge >= MINEDGE && ev >= MINEV }; }
+  function flagsOf(p) {
+    var out = [];
+    marketsOf(p).forEach(function (m) { var e = effOdds(p, m); if (!e) return; var j = judge(m, e.o); if (j.ok) out.push({ m: m, o: e.o, mine: e.mine, ev: j.ev, edge: j.edge }); });
+    out.sort(function (a, b) { return b.ev - a.ev; }); return out;
+  }
+  function betsHtml(p) {
+    var f = flagsOf(p);
+    if (!f.length) return '<p class="note">No value flag at ' + (MINEDGE * 100).toFixed(1) + "% edge and " + (MINEV * 100).toFixed(1) + "% EV. Open Markets or Corners and type in odds you have to check other markets.</p>";
+    return f.map(function (b) {
+      return '<div class="bet"><b>' + esc(b.m.label) + "<small>" + esc(b.m.group) + '</small></b><span class="ev">EV ' + spc(b.ev) + '</span><span class="mm">Model ' + pc(b.m.p) + " · odds " + b.o.toFixed(2) + (b.mine ? " (yours)" : " (book)") + " · implied " + pc(1 / b.o) + " · edge " + spc(b.edge) + "</span></div>";
+    }).join("");
+  }
+  function evCell(m, o) { if (!o) return { cls: "evc", html: "" }; var j = judge(m, o); return { cls: "evc" + (j.ok ? " pos" : ""), html: "EV " + spc(j.ev, 0), flag: j.ok }; }
+  function rowId(p, m) { return "o_" + (mid(p) + "#" + m.key).replace(/[^A-Za-z0-9]/g, "_"); }
+  function cornerTotal(p) { return p.corners ? num(p.corners.expected_total) : NaN; }
+
+  /* ---------- match list ---------- */
+  function dayLabel(d) { var t = new Date(d + "T12:00:00"); return isFinite(t) ? { w: t.toLocaleDateString([], { weekday: "short" }), n: t.getDate() } : { w: "", n: d }; }
+
+  var PRESETS = [
+    ["all", "All", null],
+    ["value", "Value", function (p) { return flagsOf(p).length > 0; }],
+    ["over", "Over 2.5 60%+", function (p) { return num(p.goal_model && p.goal_model.over25) >= 0.6; }],
+    ["under", "Under 2.5 60%+", function (p) { return num(p.goal_model && p.goal_model.under25) >= 0.6; }],
+    ["btts", "Both score 60%+", function (p) { return num(p.goal_model && p.goal_model.btts_yes) >= 0.6; }],
+    ["cor", "Corners 10.5+", function (p) { return cornerTotal(p) >= 10.5; }],
+    ["fav", "★ Saved", function (p) { return !!FAV[mid(p)]; }]
+  ];
+  function presetFn() { for (var i = 0; i < PRESETS.length; i++) if (PRESETS[i][0] === QUICK) return PRESETS[i][2]; return null; }
+
+  function row(p, i) {
+    var m1 = p.model_1x2 || {}, gm = p.goal_model || {}, h = num(m1.home_win), d = num(m1.draw), a = num(m1.away_win), s = (h + d + a) || 1;
+    var o = num(gm.over25), b = num(gm.btts_yes), c = cornerTotal(p), nf = flagsOf(p).length;
+    return '<article class="m" data-i="' + i + '" tabindex="0" role="button" aria-label="Open ' + esc(p.home) + " versus " + esc(p.away) + '">' +
+      '<div class="t"><span class="lg">' + esc(p.kickoff_nairobi) + " EAT · " + esc(p.league) + '</span><button class="star" type="button" data-fav="' + i + '" aria-pressed="' + (FAV[mid(p)] ? "true" : "false") + '" aria-label="Save match">' + (FAV[mid(p)] ? "★" : "☆") + "</button></div>" +
+      '<div class="tm"><span class="n">' + esc(p.home) + '</span><span class="pp h">' + pc(h, 0) + '</span><span class="n">' + esc(p.away) + '</span><span class="pp a">' + pc(a, 0) + "</span></div>" +
+      '<div class="bar"><i class="h" style="width:' + (h / s * 100) + '%"></i><i class="d" style="width:' + (d / s * 100) + '%"></i><i class="a" style="width:' + (a / s * 100) + '%"></i></div>' +
+      '<div class="pills"><span class="pill ' + (o >= 0.6 ? "hot" : "") + '">O2.5 <b>' + pc(o, 0) + '</b></span><span class="pill ' + (b >= 0.6 ? "hot" : "") + '">BTTS <b>' + pc(b, 0) + '</b></span>' +
+      '<span class="pill ' + (c >= 10.5 ? "hot" : "") + '">Corners <b>' + (isFinite(c) ? c.toFixed(1) : "–") + "</b></span>" +
+      (nf ? '<span class="pill val">' + nf + " value</span>" : "") + (p.low_data ? '<span class="pill lim">Limited history</span>' : "") + "</div></article>";
+  }
+
+  function setData(d, isExample, label) {
+    DATA = d; EXAMPLE = isExample;
+    $("exbanner").hidden = !isExample;
+    var preds = d.predictions || [], dates = [], seen = {}, leagues = [], ls = {};
+    preds.forEach(function (p) { if (p.date) { if (seen[p.date] == null) { seen[p.date] = 0; dates.push(p.date); } seen[p.date]++; } if (p.league && !ls[p.league]) { ls[p.league] = 1; leagues.push(p.league); } });
+    dates.sort();
+    var t = ymd(0); DAY = dates.indexOf(t) >= 0 ? t : (dates.filter(function (x) { return x >= t; })[0] || "");
+    $("days").innerHTML = '<button class="chip day" type="button" data-day="" aria-pressed="false"><b>All</b><span>' + preds.length + " games</span></button>" +
+      dates.map(function (x) { var l = dayLabel(x); return '<button class="chip day" type="button" data-day="' + esc(x) + '" aria-pressed="false"><b>' + esc(l.n) + "</b><span>" + esc(l.w) + " · " + seen[x] + "</span></button>"; }).join("");
+    $("fl").innerHTML = '<option value="">All leagues</option>' + leagues.map(function (l) { return '<option value="' + esc(l) + '">' + esc(l) + "</option>"; }).join("");
+    var g = d.generated_at_utc ? new Date(d.generated_at_utc) : null;
+    $("stamp").textContent = isExample ? "Example" : (g && isFinite(g) ? "Updated " + g.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
+    var st = $("stale");
+    if (!isExample && g && isFinite(g) && Date.now() - g.getTime() > 30 * 3600 * 1000) { st.hidden = false; st.innerHTML = "<b>Old data.</b> This file was generated more than a day ago. Run the workflow again for today's matches."; } else st.hidden = true;
+    status(label || "", false);
+    render();
+  }
+
+  function coverage(all) {
+    var rows = all.filter(function (p) { return !DAY || p.date === DAY; }), lg = {};
+    rows.forEach(function (p) { lg[p.league] = (lg[p.league] || 0) + 1; });
+    var names = Object.keys(lg).sort(), meta = DATA.meta || {}, sk = meta.skipped || [];
+    $("cov").innerHTML = "<p><b style=\"color:var(--fg)\">" + rows.length + " match" + (rows.length === 1 ? "" : "es") + " in " + names.length + " league" + (names.length === 1 ? "" : "s") + "</b> for the day shown.</p>" +
+      '<div class="lgs">' + names.map(function (n) { return "<span>" + esc(n) + " · " + lg[n] + "</span>"; }).join("") + "</div>" +
+      "<p>Only leagues that football-data.co.uk lists in its fixtures file appear here. Cup games, European competitions and leagues it does not publish are not included.</p>" +
+      (meta.note ? "<p>" + esc(meta.note) + "</p>" : "") + (sk.length ? "<p>Skipped by the script: " + sk.map(function (s) { return esc(s.match); }).join(", ") + ".</p>" : "");
+  }
+
+  function render() {
+    if (!DATA) return;
+    var all = Array.isArray(DATA.predictions) ? DATA.predictions.slice() : [];
+    MINEDGE = (num($("fe").value) || 0) / 100; MINEV = (num($("fm").value) || 0) / 100;
+    var lg = $("fl").value, so = $("fs").value, pf = presetFn();
+    Array.prototype.forEach.call($("days").children, function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-day") === DAY)); });
+    $("quick").innerHTML = PRESETS.map(function (q) { return '<button class="chip" type="button" data-q="' + q[0] + '" aria-pressed="' + (q[0] === QUICK) + '">' + esc(q[1]) + "</button>"; }).join("");
+    coverage(all);
+    var list = all.filter(function (p) { return (!DAY || p.date === DAY) && (!lg || p.league === lg) && (!pf || pf(p)); });
+    var key = {
+      ko: function (p) { return String(p.date) + String(p.kickoff_nairobi); },
+      ev: function (p) { var f = flagsOf(p)[0]; return f ? -f.ev : 1; },
+      o25: function (p) { return -num(p.goal_model && p.goal_model.over25); },
+      btts: function (p) { return -num(p.goal_model && p.goal_model.btts_yes); },
+      cor: function (p) { var c = cornerTotal(p); return isFinite(c) ? -c : 0; }
+    }[so];
+    list.sort(function (a, b) { var x = key(a), y = key(b); return x < y ? -1 : x > y ? 1 : 0; });
+    CUR = list;
+    var nf = list.reduce(function (s, p) { return s + flagsOf(p).length; }, 0);
+    $("count").innerHTML = "<b>" + list.length + "</b> match" + (list.length === 1 ? "" : "es") + " · <b>" + nf + "</b> value flag" + (nf === 1 ? "" : "s");
+    $("list").innerHTML = list.length ? list.map(row).join("") : '<div class="empty">No matches here. ' + (all.length ? "Try another day or the All filter." : "The file has no fixtures.") + "</div>";
+
+    var bt = DATA.backtest;
+    if (bt && bt.matches) {
+      $("btp").hidden = false;
+      $("bt").innerHTML = [["Holdout matches", bt.matches], ["Accuracy", pc(bt.accuracy)], ["Brier score", isFinite(num(bt.mean_brier_1x2)) ? num(bt.mean_brier_1x2).toFixed(3) : "–"],
+        ["Log loss", isFinite(num(bt.mean_log_loss)) ? num(bt.mean_log_loss).toFixed(3) : "–"], ["Value bets tested", bt.value_bets], ["Value-bet ROI", bt.value_bet_roi == null ? "–" : pc(bt.value_bet_roi)]]
+        .map(function (r) { return '<div><div class="k">' + r[0] + '</div><div class="v">' + esc(r[1]) + "</div></div>"; }).join("");
+      $("btnote").textContent = "Trained on " + (bt.training_matches || "?") + " matches, tested " + (bt.test_start || "?") + " to " + (bt.test_end || "?") + ". Covers match results only, not corners or goal markets. A history check on one split of the data, not evidence of future profit.";
+    } else $("btp").hidden = true;
+  }
+
+  /* ---------- match view ---------- */
+  var TABS = [["overview", "Overview"], ["markets", "Markets"], ["corners", "Corners"], ["scores", "Scores"]];
+  function hist(vals, labels, hl) {
+    var mx = Math.max.apply(null, vals) || 1;
+    return '<div class="hist">' + vals.map(function (v, i) { return '<div class="' + (hl(i) ? "on" : "") + '"><em>' + (v >= 0.01 ? Math.round(v * 100) : "") + '</em><i style="height:' + (v / mx * 78) + '%"></i><span>' + labels[i] + "</span></div>"; }).join("") + "</div>";
+  }
+  function marketRows(p, groups) {
+    var ms = marketsOf(p).filter(function (m) { return groups.indexOf(m.group) >= 0; }), order = [], by = {};
+    ms.forEach(function (m) { if (!by[m.group]) { by[m.group] = []; order.push(m.group); } by[m.group].push(m); });
+    if (!ms.length) return '<div class="empty">No corner data for this match. The source file had too few corner counts for these teams.</div>';
+    var h = '<div class="scroll"><table><tr><th>Market</th><th>Model</th><th>Fair</th><th>Odds</th><th>Value</th></tr>';
+    order.forEach(function (g) {
+      h += '<tr class="grp"><td colspan="5">' + esc(g) + "</td></tr>";
+      by[g].forEach(function (m) {
+        var e = effOdds(p, m), ev = evCell(m, e && e.o), mine = ODDS[mid(p) + "#" + m.key];
+        h += '<tr data-k="' + esc(m.key) + '"' + (ev.flag ? ' class="flag"' : "") + "><td>" + esc(m.label) + "</td><td>" + pc(m.p) + '</td><td class="mono">' + fair(m.p) +
+          '</td><td><input class="oi' + (mine ? " mine" : "") + '" id="' + rowId(p, m) + '" inputmode="decimal" autocomplete="off" aria-label="Odds for ' + esc(m.label) + '" placeholder="' + (m.odds ? Number(m.odds).toFixed(2) : "odds") + '" value="' + esc(mine || "") + '"></td><td class="' + ev.cls + '">' + ev.html + "</td></tr>";
+      });
+    });
+    return h + "</table></div>";
+  }
+  function scoreGrid(p) {
+    var xg = p.expected_goals || {}, lh = num(xg.home), la = num(xg.away); if (!isFinite(lh) || !isFinite(la)) return "";
+    var mat = matrix(lh, la), mx = 0, i, j;
+    for (i = 0; i <= 5; i++) for (j = 0; j <= 5; j++) mx = Math.max(mx, mat[i][j]);
+    var g = '<div class="hd"></div>'; for (j = 0; j <= 5; j++) g += '<div class="hd">' + j + "</div>";
+    for (i = 0; i <= 5; i++) { g += '<div class="hd">' + i + "</div>"; for (j = 0; j <= 5; j++) { var w = Math.round(mat[i][j] / mx * 80); g += '<div style="background:color-mix(in srgb, var(--pop) ' + w + '%, var(--surface));' + (w > 40 ? "color:var(--on-pop)" : "") + '">' + (mat[i][j] * 100).toFixed(1) + "</div>"; } }
+    return '<div class="scroll"><div class="grid">' + g + '</div></div><p class="note">Rows are home goals, columns are away goals, in percent. Rebuilt in this page from the expected goals.</p>';
+  }
+  function tabHtml(p, tab) {
+    var m1 = p.model_1x2 || {}, gm = p.goal_model || {}, xg = p.expected_goals || {}, cr = p.corners;
+    var h = num(m1.home_win), d = num(m1.draw), a = num(m1.away_win), s = (h + d + a) || 1;
+    if (tab === "overview") {
+      var tt = isFinite(num(xg.home)) ? totals(matrix(num(xg.home), num(xg.away))) : null, hv = [], hl = [], i;
+      if (tt) for (i = 0; i <= 6; i++) { hv.push(i === 6 ? over(tt, 5.5) : tt[i]); hl.push(i === 6 ? "6+" : String(i)); }
+      var sc = Array.isArray(p.correct_scores) ? p.correct_scores : [];
+      return '<div class="card"><div class="bar"><i class="h" style="width:' + (h / s * 100) + '%"></i><i class="d" style="width:' + (d / s * 100) + '%"></i><i class="a" style="width:' + (a / s * 100) + '%"></i></div>' +
+        '<div class="legend"><span class="h">Home ' + pc(h, 0) + '</span><span class="d">Draw ' + pc(d, 0) + '</span><span class="a">Away ' + pc(a, 0) + "</span></div></div>" +
+        '<div class="tiles"><div class="tile"><div class="k">Expected goals</div><div class="v">' + (isFinite(num(xg.home)) ? num(xg.home).toFixed(2) + " : " + num(xg.away).toFixed(2) : "–") + '</div></div>' +
+        '<div class="tile"><div class="k">Over 2.5</div><div class="v">' + pc(gm.over25, 0) + '</div></div><div class="tile"><div class="k">Both score</div><div class="v">' + pc(gm.btts_yes, 0) + "</div></div>" +
+        '<div class="tile"><div class="k">Corners</div><div class="v">' + (cr ? num(cr.expected_total).toFixed(1) : "–") + "</div></div></div>" +
+        "<h3>Value flags</h3><div>" + betsHtml(p) + "</div>" +
+        (tt ? '<h3>Total goals, percent</h3><div class="card">' + hist(hv, hl, function (j) { return j >= 3; }) + '<p class="note">Yellow bars are 3 or more goals.</p></div>' : "") +
+        (sc.length ? '<h3>Likeliest scores</h3><div class="tiles">' + sc.map(function (c) { return '<div class="tile"><div class="v">' + esc(c.score) + " <small>" + pc(c.p) + "</small></div></div>"; }).join("") + "</div>" : "") +
+        (p.low_data ? '<p class="note">One or both teams have little match history in the data, so treat these numbers with extra care.</p>' : "");
+    }
+    if (tab === "markets") return '<p class="note">Type decimal odds from any bookmaker into a row. The value column updates straight away, and rows that pass your edge and EV levels are highlighted.</p>' + marketRows(p, ["Result", "Goals", "Team goals", "Handicap"]);
+    if (tab === "corners") {
+      if (!cr) return marketRows(p, ["Corners"]);
+      var mean = num(cr.expected_total), dist = countDist(mean, num(cr.dispersion) || 1.15), lo = Math.max(0, Math.round(mean) - 6), cv = [], cl = [], k;
+      for (k = lo; k <= lo + 12; k++) { cv.push(dist[k] || 0); cl.push(String(k)); }
+      return '<div class="tiles"><div class="tile"><div class="k">Total</div><div class="v">' + mean.toFixed(1) + '</div></div><div class="tile"><div class="k">Home</div><div class="v">' + num(cr.expected_home).toFixed(1) +
+        '</div></div><div class="tile"><div class="k">Away</div><div class="v">' + num(cr.expected_away).toFixed(1) + "</div></div></div>" +
+        '<div class="card"><h3 style="margin:0">Total corners, percent</h3>' + hist(cv, cl, function (j) { return lo + j > 9; }) + '<p class="note">Yellow bars are 10 or more corners.</p></div>' +
+        '<p class="note">The free data has no corner odds. Type the odds your bookmaker offers to see the value.</p>' + marketRows(p, ["Corners"]);
+    }
+    return scoreGrid(p) || '<div class="empty">No expected goals for this match.</div>';
+  }
+  function showDetail(i, tab) {
+    var p = CUR[i]; if (!p) return;
+    OPEN = p; TAB = tab || "overview";
+    $("dmeta").textContent = p.date + " · " + p.kickoff_nairobi + " EAT · " + p.league;
+    $("dtitle").textContent = p.home + " vs " + p.away;
+    $("tabs").innerHTML = TABS.map(function (t) { return '<button type="button" role="tab" data-t="' + t[0] + '" aria-selected="' + (t[0] === TAB) + '">' + t[1] + "</button>"; }).join("");
+    $("dbody").innerHTML = tabHtml(p, TAB);
+    $("detail").hidden = false; $("detail").scrollTop = 0; document.body.style.overflow = "hidden";
+    $("back").focus();
+  }
+  function closeDetail() { $("detail").hidden = true; document.body.style.overflow = ""; OPEN = null; render(); }
+
+  /* ---------- events ---------- */
+  $("list").addEventListener("click", function (e) {
+    var st = e.target.closest && e.target.closest("[data-fav]");
+    if (st) { e.stopPropagation(); var p = CUR[+st.getAttribute("data-fav")]; if (p) { if (FAV[mid(p)]) delete FAV[mid(p)]; else FAV[mid(p)] = 1; save(K_FAV, FAV); render(); } return; }
+    var r = e.target.closest && e.target.closest(".m"); if (r) showDetail(+r.getAttribute("data-i"));
+  });
+  $("list").addEventListener("keydown", function (e) { if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("m")) { e.preventDefault(); showDetail(+e.target.getAttribute("data-i")); } });
+  $("days").addEventListener("click", function (e) { var b = e.target.closest("[data-day]"); if (b) { DAY = b.getAttribute("data-day"); render(); } });
+  $("quick").addEventListener("click", function (e) { var b = e.target.closest("[data-q]"); if (b) { QUICK = b.getAttribute("data-q"); render(); } });
+  $("tabs").addEventListener("click", function (e) { var b = e.target.closest("[data-t]"); if (!b || !OPEN) return; TAB = b.getAttribute("data-t"); Array.prototype.forEach.call($("tabs").children, function (x) { x.setAttribute("aria-selected", String(x === b)); }); $("dbody").innerHTML = tabHtml(OPEN, TAB); $("detail").scrollTop = 0; });
+  $("back").addEventListener("click", closeDetail);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("detail").hidden) closeDetail(); });
+  $("dbody").addEventListener("input", function (e) {
+    var el = e.target; if (!el.classList || !el.classList.contains("oi") || !OPEN) return;
+    var tr = el.closest("tr"), key = mid(OPEN) + "#" + tr.getAttribute("data-k"), v = el.value.trim().replace(",", ".");
+    if (v === "") delete ODDS[key]; else ODDS[key] = v;
+    save(K_ODDS, ODDS); el.classList.toggle("mine", v !== "");
+    var m = marketsOf(OPEN).filter(function (x) { return x.key === tr.getAttribute("data-k"); })[0], eo = m && effOdds(OPEN, m), ev = evCell(m, eo && eo.o), td = tr.querySelector("td.evc");
+    td.className = ev.cls; td.textContent = ev.html; tr.classList.toggle("flag", !!ev.flag);
+  });
+  ["fl", "fs"].forEach(function (id) { $(id).addEventListener("change", render); });
+  ["fe", "fm"].forEach(function (id) { $(id).addEventListener("change", function () { save(K_SET, { e: $(id === "fe" ? "fe" : "fe").value, m: $("fm").value }); render(); }); });
+
+  function readFile(f) {
+    if (!f) return; var r = new FileReader();
+    r.onload = function () { try { var d = JSON.parse(r.result); if (!d || !Array.isArray(d.predictions)) throw new Error("This file has no predictions list. Choose the predictions.json the script wrote."); setData(d, false, "Opened " + f.name + ": " + d.predictions.length + " matches."); } catch (er) { status(er && er.message ? er.message : "That file could not be read as JSON.", true); } };
+    r.onerror = function () { status("The file could not be read. Try again.", true); };
+    r.readAsText(f);
+  }
+  $("pick").addEventListener("click", function () { $("file").click(); });
+  $("file").addEventListener("change", function (e) { readFile(e.target.files && e.target.files[0]); });
+  $("example").addEventListener("click", function () { setData(sample(), true, "Showing example data."); });
+  $("clearodds").addEventListener("click", function () { ODDS = {}; save(K_ODDS, ODDS); render(); status("Your typed odds were cleared.", false); });
+
+  function fetchLatest(quiet) {
+    status("Loading the latest predictions…", false);
+    return fetch("data/predictions.json", { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (d) {
+      if (!d || !Array.isArray(d.predictions)) throw new Error("bad file");
+      setData(d, false, "Loaded " + d.predictions.length + " matches from this site.");
+    }).catch(function () {
+      if (!DATA || !quiet) { setData(sample(), true, "No predictions file found on this site yet, so example data is shown. Run the workflow, or open a file."); }
+      else status("Could not reload. Showing what was loaded before.", true);
+    });
+  }
+  $("reload").addEventListener("click", function () { fetchLatest(false); });
+
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+  }
+  fetchLatest(false);
+})();
+</script>
+</body>
+</html>
